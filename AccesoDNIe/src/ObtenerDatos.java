@@ -111,9 +111,11 @@ public class ObtenerDatos {
         r = ch.transmit(new CommandAPDU(command));
 
         if ((byte) r.getSW() != (byte) 0x9000) {
-            byte[] responseData = r.getData();
+
             System.out.println("SW incorrecto");
             return null;
+        } else {
+            byte[] responseData = r.getData();
         }
 
         boolean endData = false;
@@ -129,38 +131,40 @@ public class ObtenerDatos {
                 r2 = r.getData();
 
             }
-        }while (!endData);
-            if (r2 != null) {
-                if (r2[4] == 0x30) {
-                    offset = 4;
-                    offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
-                }
-
-                if (r2[offset] == 0x30) {
-                    offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
-                }
-
-                if ((byte) r2[offset] == (byte) 0xA1) {
-                    //El certificado empieza aquí
-                    byte[] r3 = new byte[9];
-
-                    //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
-                    for (int z = 0; z < 9; z++) {
-                        r3[z] = r2[109 + z];
-                    }
-                    completName = new String(r3);
-                }
-
+        } while (!endData);
+        if (r2 != null) {
+            if (r2[4] == 0x30) {
+                offset = 4;
+                offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
             }
-            return completName;
-        } /**
-         * SOLUCION Leer el certifcado y lo graba en un fichero
-         *
-         * @param ch
-         * @param filename
-         * @return El array de bytes leídos
-         * @throws CardException
-         */
+
+            if (r2[offset] == 0x30) {
+                offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
+            }
+
+            if ((byte) r2[offset] == (byte) 0xA1) {
+                //El certificado empieza aquí
+                byte[] r3 = new byte[9];
+
+                //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
+                for (int z = 0; z < 9; z++) {
+                    r3[z] = r2[109 + z];
+                }
+                completName = new String(r3);
+            }
+
+        }
+        return completName;
+    }
+
+    /**
+     * SOLUCION Leer el certifcado y lo graba en un fichero
+     *
+     * @param ch
+     * @param filename
+     * @return El array de bytes leídos
+     * @throws CardException
+     */
 
     public byte[] certificadoAFichero(CardChannel ch, String filename) throws CardException {
         try {
