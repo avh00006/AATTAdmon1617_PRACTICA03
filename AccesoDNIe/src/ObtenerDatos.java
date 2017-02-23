@@ -135,9 +135,7 @@ public class ObtenerDatos {
                 //El certificado empieza aquí
                 byte[] r3 = new byte[9];
 
-                
-                
-                
+     
                 //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
                 for (int z = 0; z < 9; z++) {
                     r3[z] = r2[109 + z];
