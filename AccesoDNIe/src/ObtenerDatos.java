@@ -110,12 +110,13 @@ public class ObtenerDatos {
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x60, (byte) 0x04};
         r = ch.transmit(new CommandAPDU(command));
 
+        byte[] responseData=null;
         if ((byte) r.getSW() != (byte) 0x9000) {
 
             System.out.println("SW incorrecto");
             return null;
         } else {
-            byte[] responseData = r.getData();
+            responseData = r.getData();
         }
 
         boolean endData = false;
