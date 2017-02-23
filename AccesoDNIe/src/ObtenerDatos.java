@@ -111,49 +111,57 @@ public class ObtenerDatos {
         r = ch.transmit(new CommandAPDU(command));
 
         if ((byte) r.getSW() != (byte) 0x9000) {
+            byte[] responseData = r.getData();
             System.out.println("SW incorrecto");
             return null;
         }
 
+        boolean endData = false;
+
+        byte[] r2 = null;
         //Leemos FF bytes del archivo
-        command = new byte[]{(byte) 0x00, (byte) 0xB0, (byte) 0x00, (byte) 0x00, (byte) 0xFF};
-        r = ch.transmit(new CommandAPDU(command));
+        do {
+            command = new byte[]{(byte) 0x00, (byte) 0xB0, (byte) 0x00, (byte) 0x00, (byte) 0xFF};
 
-        if ((byte) r.getSW() == (byte) 0x9000) {
-            byte[] r2 = r.getData();
+            r = ch.transmit(new CommandAPDU(command));
 
-            if (r2[4] == 0x30) {
-                offset = 4;
-                offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
+            if ((byte) r.getSW() == (byte) 0x9000) {
+                r2 = r.getData();
+
             }
-
-            if (r2[offset] == 0x30) {
-                offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
-            }
-
-            if ((byte) r2[offset] == (byte) 0xA1) {
-                //El certificado empieza aquí
-                byte[] r3 = new byte[9];
-
-     
-                //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
-                for (int z = 0; z < 9; z++) {
-                    r3[z] = r2[109 + z];
+        }while (!endData);
+            if (r2 != null) {
+                if (r2[4] == 0x30) {
+                    offset = 4;
+                    offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
                 }
-                completName = new String(r3);
-            }
-        }
-        return completName;
-    }
 
-    /** SOLUCION
-     * Leer el certifcado y lo graba en un fichero
-     *
-     * @param ch
-     * @param filename
-     * @return El array de bytes leídos
-     * @throws CardException
-     */
+                if (r2[offset] == 0x30) {
+                    offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
+                }
+
+                if ((byte) r2[offset] == (byte) 0xA1) {
+                    //El certificado empieza aquí
+                    byte[] r3 = new byte[9];
+
+                    //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
+                    for (int z = 0; z < 9; z++) {
+                        r3[z] = r2[109 + z];
+                    }
+                    completName = new String(r3);
+                }
+
+            }
+            return completName;
+        } /**
+         * SOLUCION Leer el certifcado y lo graba en un fichero
+         *
+         * @param ch
+         * @param filename
+         * @return El array de bytes leídos
+         * @throws CardException
+         */
+
     public byte[] certificadoAFichero(CardChannel ch, String filename) throws CardException {
         try {
             int offset = 0;
@@ -212,8 +220,6 @@ public class ObtenerDatos {
 
             } while (r2.length >= 0xfe);
 
-
-
             ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
 
             CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
@@ -225,26 +231,22 @@ public class ObtenerDatos {
             byte cer2[] = baos.toByteArray();
 
             int n = 1;
-            
+
             do {
-                offset=0;
+                offset = 0;
                 if (cer2[n] > 128) {
                     do {
-                        offset=offset+cer2[n]-128;
+                        offset = offset + cer2[n] - 128;
                         n++;
                     } while (cer2[n] < 128);
-                    offset=offset+cer2[n];
-                    System.out.println("Longitud: "+offset);
-                    n=cer2[offset];       
-                }
-                else
-                {
-                    System.out.println("Longitud: "+cer2[n]);
-                
-                n=cer2[n];                
-                }
+                    offset = offset + cer2[n];
+                    System.out.println("Longitud: " + offset);
+                    n = cer2[offset];
+                } else {
+                    System.out.println("Longitud: " + cer2[n]);
 
-
+                    n = cer2[n];
+                }
 
             } while (n < cer2.length);
 
