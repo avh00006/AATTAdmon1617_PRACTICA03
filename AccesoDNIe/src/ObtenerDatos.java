@@ -97,7 +97,7 @@ public class ObtenerDatos {
             return null;
         }
 
-        //Seleccionamos el directorio PKCS#15 5015
+        //PRÁCTICA 3. Punto 1.a Seleccionamos el directorio PKCS#15 5015
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x50, (byte) 0x15};
         r = ch.transmit(new CommandAPDU(command));
 
@@ -106,7 +106,7 @@ public class ObtenerDatos {
             return null;
         }
 
-        //Seleccionamos el Certificate Directory File (CDF) del DNIe 6004
+        //PRÁCTICA 3. Punto 1.a Seleccionamos el Certificate Directory File (CDF) del DNIe 6004
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x60, (byte) 0x04};
         r = ch.transmit(new CommandAPDU(command));
 
@@ -122,8 +122,9 @@ public class ObtenerDatos {
         boolean endData = false;
 
         byte[] r2 = null;
-        //Leemos FF bytes del archivo
+        //Leer datos del certificado
         do {
+            //PRÁCTICA 3. PUNTO 1.b
             command = new byte[]{(byte) 0x00, (byte) 0xB0, (byte) 0x00, (byte) 0x00, (byte) 0xFF};
 
             r = ch.transmit(new CommandAPDU(command));
