@@ -24,12 +24,16 @@ public class ObtenerDatos {
     public ObtenerDatos() {
     }
 
-    public String LeerNIF() {
-        String nif = null;
+    public Usuario LeerNIF() {
+        String nombre="";
+        String apellido1="";
+        String apellido2="";
+        String nif="";
+
         try {
             Card c = ConexionTarjeta();
             if (c == null) {
-                throw new Exception("No se ha encontrado ninguna tarjeta");
+                throw new Exception("ACCESO DNIe: No se ha encontrado ninguna tarjeta");
             }
             byte[] atr = c.getATR().getBytes();
             CardChannel ch = c.getBasicChannel();
@@ -43,7 +47,7 @@ public class ObtenerDatos {
             Logger.getLogger(ObtenerDatos.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
-        return nif;
+        return new Usuario(nombre,apellido1,apellido2,nif);
     }
 
     public String leerCertificado(CardChannel ch) throws CardException {
@@ -54,7 +58,7 @@ public class ObtenerDatos {
         byte[] command = new byte[]{(byte) 0x00, (byte) 0xa4, (byte) 0x04, (byte) 0x00, (byte) 0x0b, (byte) 0x4D, (byte) 0x61, (byte) 0x73, (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x2E, (byte) 0x46, (byte) 0x69, (byte) 0x6C, (byte) 0x65};
         ResponseAPDU r = ch.transmit(new CommandAPDU(command));
         if ((byte) r.getSW() != (byte) 0x9000) {
-            System.out.println("SW incorrecto");
+            System.out.println("ACCESO DNIe: SW incorrecto");
             return null;
         }
 
@@ -63,7 +67,7 @@ public class ObtenerDatos {
         r = ch.transmit(new CommandAPDU(command));
 
         if ((byte) r.getSW() != (byte) 0x9000) {
-            System.out.println("SW incorrecto");
+            System.out.println("ACCESO DNIe: SW incorrecto");
             return null;
         }
 
@@ -73,7 +77,7 @@ public class ObtenerDatos {
 
         byte[] responseData = null;
         if ((byte) r.getSW() != (byte) 0x9000) {
-            System.out.println("SW incorrecto");
+            System.out.println("ACCESO DNIe: SW incorrecto");
             return null;
         } else {
             responseData = r.getData();
@@ -84,14 +88,16 @@ public class ObtenerDatos {
         int bloque = 0;
 
         do {
-            final byte CLA = (byte) 0x00;
-            final byte INS = (byte) 0xB0;
+             //[4] PRÁCTICA 3. Punto 1.b
+            final byte CLA = (byte) 0x00;//Buscar qué valor poner aquí (0xFF no es el correcto)
+            final byte INS = (byte) 0xB0;//Buscar qué valor poner aquí (0xFF no es el correcto)
+            final byte LE = (byte) 0xFF;// Identificar qué significa este valor
 
             //[4] PRÁCTICA 3. Punto 1.b
-            command = new byte[]{CLA, INS, (byte) bloque, (byte) 0xff, (byte) 0xFF};
+            command = new byte[]{CLA, INS, (byte) bloque/*P1*/, (byte) 0x00/*P2*/, LE};//Identificar qué hacen P1 y P2
             r = ch.transmit(new CommandAPDU(command));
 
-            System.out.println("Response SW1=" + String.format("%X", r.getSW1()) + " SW2=" + String.format("%X", r.getSW2()));
+            //System.out.println("ACCESO DNIe: Response SW1=" + String.format("%X", r.getSW1()) + " SW2=" + String.format("%X", r.getSW2()));
 
             if ((byte) r.getSW() == (byte) 0x9000) {
                 r2 = r.getData();
@@ -101,7 +107,7 @@ public class ObtenerDatos {
                 for (int i = 0; i < r2.length; i++) {
                     byte[] t = new byte[1];
                     t[0] = r2[i];
-                    System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + new String(t));
+                    System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + String.format(" %u", r2[i])+" "+new String(t));
                 }
                 bloque++;
             } else {

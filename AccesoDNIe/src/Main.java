@@ -20,13 +20,14 @@ public class Main {
     public static void main(String[] args) throws Exception{
         ByteArrayInputStream bais=null;
         
-        //PUNTO 2. Conseguir que el método LeerNIF de ObtenerDatos devuelva el 
-        //         correctamente NIF 
+        //TAREA 2. Conseguir que el método LeerNIF de ObtenerDatos devuelva el 
+        //         correctamente los datos de usuario 
         ObtenerDatos od = new ObtenerDatos();
-        String nif = od.LeerNIF();
-        System.out.println("NIF: "+nif);
+        Usuario user = od.LeerNIF();
+        if(user!=null)
+            System.out.println("usuario: "+user.toString());
         
-        //TODO PUNTO 3. AUTENTICAR EL CLIENTE CON EL SERVIDOR
+        //TAREA 3. AUTENTICAR EL CLIENTE CON EL SERVIDOR
         
     }
 }
