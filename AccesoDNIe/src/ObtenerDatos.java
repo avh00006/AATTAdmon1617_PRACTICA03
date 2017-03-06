@@ -1,4 +1,8 @@
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,11 +29,9 @@ public class ObtenerDatos {
     }
 
     public Usuario LeerNIF() {
-        String nombre="";
-        String apellido1="";
-        String apellido2="";
-        String nif="";
 
+        Usuario user = null;
+        byte[] datos=null;
         try {
             Card c = ConexionTarjeta();
             if (c == null) {
@@ -39,7 +41,9 @@ public class ObtenerDatos {
             CardChannel ch = c.getBasicChannel();
 
             if (esDNIe(atr)) {
-                nif = leerCertificado(ch);
+                datos = leerCertificado(ch);
+                if(datos!=null)
+                    user = leerDatosUsuario(datos);
             }
             c.disconnect(false);
 
@@ -47,10 +51,12 @@ public class ObtenerDatos {
             Logger.getLogger(ObtenerDatos.class.getName()).log(Level.SEVERE, null, ex);
             return null;
         }
-        return new Usuario(nombre,apellido1,apellido2,nif);
+        return user;
     }
 
-    public String leerCertificado(CardChannel ch) throws CardException {
+    public byte[] leerCertificado(CardChannel ch) throws CardException, CertificateException {
+
+
         int offset = 0;
         String completName = null;
 
@@ -107,7 +113,7 @@ public class ObtenerDatos {
                 for (int i = 0; i < r2.length; i++) {
                     byte[] t = new byte[1];
                     t[0] = r2[i];
-                    System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + String.format(" %u", r2[i])+" "+new String(t));
+                    System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + String.format(" %d", r2[i])+" "+new String(t));
                 }
                 bloque++;
             } else {
@@ -116,33 +122,22 @@ public class ObtenerDatos {
 
         } while (r2.length >= 0xfe);
 
-        byte[] datos = baos.toByteArray();
 
-        if (datos != null) {
-            if (datos[4] == 0x30) {
-                offset = 4;
-                offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
-            }
+         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
 
-            if (datos[offset] == 0x30) {
-                offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
-            }
+            CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
 
-            if ((byte) datos[offset] == (byte) 0xA1) {
-                //El certificado empieza aquí
-                byte[] r3 = new byte[9];
+            // certificate factory can now create the certificate 
+            X509Certificate cert = (X509Certificate) certFactory.generateCertificate(bais);
+            System.out.println("Subject DN" + cert.getSubjectDN());
 
-                //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
-                for (int z = 0; z < 9; z++) {
-                    r3[z] = datos[109 + z];
-                }
-                completName = new String(r3);
-            }
-
-        }
-        return completName;
+        
+        return baos.toByteArray();
     }
 
+    
+    
+    
     /**
      * Este método establece la conexión con la tarjeta. La función busca el
      * Terminal que contenga una tarjeta, independientemente del tipo de tarjeta
@@ -205,5 +200,17 @@ public class ObtenerDatos {
             return false;
         }
 
+    }
+
+    /**
+     * Analizar los datos leídos del DNIe para obtener
+     *   - nombre
+     *   - apellidos
+     *   - NIF
+     * @param datos
+     * @return 
+     */
+    private Usuario leerDatosUsuario(byte[] datos) {
+       return null;
     }
 }
