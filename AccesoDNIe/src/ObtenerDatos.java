@@ -1,19 +1,8 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.smartcardio.*;
-import java.lang.System.*;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 
 /**
  * La clase ObtenerDatos implementa cuatro métodos públicos que permiten obtener
@@ -46,7 +35,7 @@ public class ObtenerDatos {
             CardChannel ch = c.getBasicChannel();
 
             if (esDNIe(atr)) {
-                nif = leerDeCertificado(ch);
+                nif = leerCertificado(ch);
             }
             c.disconnect(false);
 
@@ -57,39 +46,11 @@ public class ObtenerDatos {
         return nif;
     }
 
-    public String escribirCertificado(String filename) {
-        String nif = null;
-        byte[] data = null;
-        try {
-            Card c = ConexionTarjeta();
-            if (c == null) {
-                throw new Exception("No se ha encontrado ninguna tarjeta");
-            }
-            byte[] atr = c.getATR().getBytes();
-            CardChannel ch = c.getBasicChannel();
-
-            if (esDNIe(atr)) {
-                data = certificadoAFichero(ch, filename);
-            }
-            c.disconnect(false);
-
-            if (data != null) {
-                for (int i = 0; i < data.length; i++) {
-                    System.out.print(String.format("%2X", data[i]));
-                }
-            }
-
-        } catch (Exception ex) {
-            Logger.getLogger(ObtenerDatos.class.getName()).log(Level.SEVERE, null, ex);
-            return null;
-        }
-        return nif;
-    }
-
-    public String leerDeCertificado(CardChannel ch) throws CardException {
+    public String leerCertificado(CardChannel ch) throws CardException {
         int offset = 0;
         String completName = null;
 
+        //[1] PRÁCTICA 3. Punto 1.a
         byte[] command = new byte[]{(byte) 0x00, (byte) 0xa4, (byte) 0x04, (byte) 0x00, (byte) 0x0b, (byte) 0x4D, (byte) 0x61, (byte) 0x73, (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x2E, (byte) 0x46, (byte) 0x69, (byte) 0x6C, (byte) 0x65};
         ResponseAPDU r = ch.transmit(new CommandAPDU(command));
         if ((byte) r.getSW() != (byte) 0x9000) {
@@ -97,7 +58,7 @@ public class ObtenerDatos {
             return null;
         }
 
-        //PRÁCTICA 3. Punto 1.a Seleccionamos el directorio PKCS#15 5015
+        //[2] PRÁCTICA 3. Punto 1.a
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x50, (byte) 0x15};
         r = ch.transmit(new CommandAPDU(command));
 
@@ -106,171 +67,74 @@ public class ObtenerDatos {
             return null;
         }
 
-        //PRÁCTICA 3. Punto 1.a Seleccionamos el Certificate Directory File (CDF) del DNIe 6004
+        //[3] PRÁCTICA 3. Punto 1.a
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x60, (byte) 0x04};
         r = ch.transmit(new CommandAPDU(command));
 
-        byte[] responseData=null;
+        byte[] responseData = null;
         if ((byte) r.getSW() != (byte) 0x9000) {
-
             System.out.println("SW incorrecto");
             return null;
         } else {
             responseData = r.getData();
         }
 
-        boolean endData = false;
-
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] r2 = null;
-        //Leer datos del certificado
-        do {
-            //PRÁCTICA 3. PUNTO 1.b
-            command = new byte[]{(byte) 0x00, (byte) 0xB0, (byte) 0x00, (byte) 0x00, (byte) 0xFF};
+        int bloque = 0;
 
+        do {
+            final byte CLA = (byte) 0x00;
+            final byte INS = (byte) 0xB0;
+
+            //[4] PRÁCTICA 3. Punto 1.b
+            command = new byte[]{CLA, INS, (byte) bloque, (byte) 0xff, (byte) 0xFF};
             r = ch.transmit(new CommandAPDU(command));
+
+            System.out.println("Response SW1=" + String.format("%X", r.getSW1()) + " SW2=" + String.format("%X", r.getSW2()));
 
             if ((byte) r.getSW() == (byte) 0x9000) {
                 r2 = r.getData();
 
+                baos.write(r2, 0, r2.length);
+
+                for (int i = 0; i < r2.length; i++) {
+                    byte[] t = new byte[1];
+                    t[0] = r2[i];
+                    System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + new String(t));
+                }
+                bloque++;
+            } else {
+                return null;
             }
-        } while (!endData);
-        if (r2 != null) {
-            if (r2[4] == 0x30) {
+
+        } while (r2.length >= 0xfe);
+
+        byte[] datos = baos.toByteArray();
+
+        if (datos != null) {
+            if (datos[4] == 0x30) {
                 offset = 4;
                 offset += r2[offset + 1] + 2; //Obviamos la seccion del Label
             }
 
-            if (r2[offset] == 0x30) {
+            if (datos[offset] == 0x30) {
                 offset += r2[offset + 1] + 2; //Obviamos la seccion de la informacion sobre la fecha de expedición etc
             }
 
-            if ((byte) r2[offset] == (byte) 0xA1) {
+            if ((byte) datos[offset] == (byte) 0xA1) {
                 //El certificado empieza aquí
                 byte[] r3 = new byte[9];
 
                 //Nos posicionamos en el byte donde empieza el NIF y leemos sus 9 bytes
                 for (int z = 0; z < 9; z++) {
-                    r3[z] = r2[109 + z];
+                    r3[z] = datos[109 + z];
                 }
                 completName = new String(r3);
             }
 
         }
         return completName;
-    }
-
-    /**
-     * SOLUCION Leer el certifcado y lo graba en un fichero
-     *
-     * @param ch
-     * @param filename
-     * @return El array de bytes leídos
-     * @throws CardException
-     */
-
-    public byte[] certificadoAFichero(CardChannel ch, String filename) throws CardException {
-        try {
-            int offset = 0;
-            String completName = null;
-            byte[] data = null;
-
-            byte[] command = new byte[]{(byte) 0x00, (byte) 0xa4, (byte) 0x04, (byte) 0x00, (byte) 0x0b, (byte) 0x4D, (byte) 0x61, (byte) 0x73, (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x2E, (byte) 0x46, (byte) 0x69, (byte) 0x6C, (byte) 0x65};
-            ResponseAPDU r = ch.transmit(new CommandAPDU(command));
-            if ((byte) r.getSW() != (byte) 0x9000) {
-                System.out.println("SW incorrecto");
-                return null;
-            }
-
-            //Seleccionamos el directorio PKCS#15 5015
-            command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x50, (byte) 0x15};
-            r = ch.transmit(new CommandAPDU(command));
-
-            if ((byte) r.getSW() != (byte) 0x9000) {
-                System.out.println("SW incorrecto");
-                return null;
-            }
-
-            //Seleccionamos el Certificate Directory File (CDF) del DNIe 6004
-            command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x60, (byte) 0x04};
-            r = ch.transmit(new CommandAPDU(command));
-
-            if ((byte) r.getSW() != (byte) 0x9000) {
-                System.out.println("SW incorrecto");
-                return null;
-            }
-
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] r2 = null;
-            int bloque = 0;
-            int seq = 0;
-            do {
-                //Leemos FF bytes del archivo
-                command = new byte[]{(byte) 0x00, (byte) 0xB0, (byte) bloque, (byte) 0xff, (byte) 0xFF};
-                r = ch.transmit(new CommandAPDU(command));
-
-                System.out.println("Response SW1=" + String.format("%X", r.getSW1()) + " SW2=" + String.format("%X", r.getSW2()));
-                if ((byte) r.getSW() == (byte) 0x9000) {
-                    r2 = r.getData();
-
-                    baos.write(r2, 0, r2.length);
-
-                    for (int i = 0; i < r2.length; i++) {
-                        byte[] t = new byte[1];
-                        t[0] = r2[i];
-                        System.out.println(i + (0xff * bloque) + String.format(" %2X", r2[i]) + " " + new String(t));
-                    }
-                    bloque++;
-                } else {
-                    return null;
-                }
-
-            } while (r2.length >= 0xfe);
-
-            ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-
-            CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-
-            // certificate factory can now create the certificate 
-            X509Certificate cert = (X509Certificate) certFactory.generateCertificate(bais);
-            System.out.println("Subject DN" + cert.getSubjectDN());
-
-            byte cer2[] = baos.toByteArray();
-
-            int n = 1;
-
-            do {
-                offset = 0;
-                if (cer2[n] > 128) {
-                    do {
-                        offset = offset + cer2[n] - 128;
-                        n++;
-                    } while (cer2[n] < 128);
-                    offset = offset + cer2[n];
-                    System.out.println("Longitud: " + offset);
-                    n = cer2[offset];
-                } else {
-                    System.out.println("Longitud: " + cer2[n]);
-
-                    n = cer2[n];
-                }
-
-            } while (n < cer2.length);
-
-            if (baos != null) {
-                r2 = baos.toByteArray();
-                try {
-                    baos.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(ObtenerDatos.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-            return r2;
-        } catch (CertificateException ex) {
-            Logger.getLogger(ObtenerDatos.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return null;
-
     }
 
     /**
