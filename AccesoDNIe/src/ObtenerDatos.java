@@ -121,15 +121,7 @@ public class ObtenerDatos {
             }
 
         } while (r2.length >= 0xfe);
-
-
-         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-
-            CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-
-            // certificate factory can now create the certificate 
-            X509Certificate cert = (X509Certificate) certFactory.generateCertificate(bais);
-            System.out.println("Subject DN" + cert.getSubjectDN());
+   
 
         
         return baos.toByteArray();
