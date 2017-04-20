@@ -12,7 +12,7 @@ import javax.smartcardio.*;
  * La clase ObtenerDatos implementa cuatro métodos públicos que permiten obtener
  * determinados datos de los certificados de tarjetas DNIe, Izenpe y Ona.
  *
- * @author tbc
+ * @author Angel Venteo Heras
  */
 public class ObtenerDatos {
 
@@ -27,8 +27,11 @@ public class ObtenerDatos {
 
     public ObtenerDatos() {
     }
-
-    public Usuario LeerNIF() {
+        /**
+ * Metodo para obtener los datos de la zona publica a traves del certificado.
+ * @return Usuario
+ */
+     public Usuario LeerNIF() {
 
         Usuario user = null;
         byte[] datos=null;
@@ -54,13 +57,23 @@ public class ObtenerDatos {
         return user;
     }
 
+     /**
+ * Metodo para leer el certificado y obtiene los datos públicos del DNIe.
+ * @param ch
+ * @return Objeto toByteArray con los datos
+ * @throws CardException
+ */
+     
     public byte[] leerCertificado(CardChannel ch) throws CardException, CertificateException {
 
 
         int offset = 0;
         String completName = null;
 
-        //[1] PRÁCTICA 3. Punto 1.a
+        //[1] PRÃCTICA 3. Punto 1.a
+        //El siguiente es el comando Select, permite la seleccion de un fichero dedicado (DF) o de un elemental (EF)
+        //En este caso se trata de la seleccion directa de un fichero dedicado por nombre PKCS-15
+        
         byte[] command = new byte[]{(byte) 0x00, (byte) 0xa4, (byte) 0x04, (byte) 0x00, (byte) 0x0b, (byte) 0x4D, (byte) 0x61, (byte) 0x73, (byte) 0x74, (byte) 0x65, (byte) 0x72, (byte) 0x2E, (byte) 0x46, (byte) 0x69, (byte) 0x6C, (byte) 0x65};
         ResponseAPDU r = ch.transmit(new CommandAPDU(command));
         if ((byte) r.getSW() != (byte) 0x9000) {
@@ -68,7 +81,10 @@ public class ObtenerDatos {
             return null;
         }
 
-        //[2] PRÁCTICA 3. Punto 1.a
+        //[2] PRÃCTICA 3. Punto 1.a
+        //El siguiente es el comando Select, permite la seleccion de un fichero dedicado (DF) o de un elemental (EF)
+        //En este caso se trata de la seleccion de un fichero elemental con Id: 50 15
+        
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x50, (byte) 0x15};
         r = ch.transmit(new CommandAPDU(command));
 
@@ -77,7 +93,10 @@ public class ObtenerDatos {
             return null;
         }
 
-        //[3] PRÁCTICA 3. Punto 1.a
+        //[3] PRÃCTICA 3. Punto 1.a
+        //El siguiente es el comando Select, permite la seleccion de un fichero dedicado (DF) o de un elemental (EF)
+        //En este caso se trata de la seleccion de un fichero elemental con Id: 60 04
+        
         command = new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x00, (byte) 0x00, (byte) 0x02, (byte) 0x60, (byte) 0x04};
         r = ch.transmit(new CommandAPDU(command));
 
@@ -94,13 +113,14 @@ public class ObtenerDatos {
         int bloque = 0;
 
         do {
-             //[4] PRÁCTICA 3. Punto 1.b
-            final byte CLA = (byte) 0x00;//Buscar qué valor poner aquí (0xFF no es el correcto)
-            final byte INS = (byte) 0xB0;//Buscar qué valor poner aquí (0xFF no es el correcto)
-            final byte LE = (byte) 0xFF;// Identificar qué significa este valor
+             //[4] PRÃCTICA 3. Punto 1.b
+            final byte CLA = (byte) 0x00;//Buscar qué valor poner aquí (0xFF no es el correcto) Comando Read Binary
+            final byte INS = (byte) 0xB0;//Buscar qué valor poner aquí (0xFF no es el correcto) Comando Read Binary
+            final byte LE = (byte) 0xFF;// Identificar qué significa este valor.  Número de bytes a leer, para este caso son 256
 
-            //[4] PRÁCTICA 3. Punto 1.b
-            command = new byte[]{CLA, INS, (byte) bloque/*P1*/, (byte) 0x00/*P2*/, LE};//Identificar qué hacen P1 y P2
+            //[4] PRÃCTICA 3. Punto 1.b
+            command = new byte[]{CLA, INS, (byte) bloque/*P1*/, (byte) 0x00/*P2*/, LE};//Identificar qué hacen P1 y P2  Offset del primer byte a leer desde el
+            //principio del fichero.
             r = ch.transmit(new CommandAPDU(command));
 
             //System.out.println("ACCESO DNIe: Response SW1=" + String.format("%X", r.getSW1()) + " SW2=" + String.format("%X", r.getSW2()));
@@ -121,7 +141,11 @@ public class ObtenerDatos {
             }
 
         } while (r2.length >= 0xfe);
-   
+
+
+         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+
+      
 
         
         return baos.toByteArray();
@@ -195,14 +219,67 @@ public class ObtenerDatos {
     }
 
     /**
-     * Analizar los datos leídos del DNIe para obtener
+     * Analiza los datos leídos del DNIe para obtener
      *   - nombre
      *   - apellidos
      *   - NIF
+     *   - Nombre de usuario
      * @param datos
-     * @return 
+     * @return Objeto de la clase usuario
      */
     private Usuario leerDatosUsuario(byte[] datos) {
-       return null;
+        
+       String nombre;
+   
+        byte[] b = new byte[9];
+        byte[] k = new byte[100];
+           
+        
+        boolean parada=false;
+        boolean parada2=false;
+        
+        for (int i=0;i<datos.length-3;i++){
+            
+            if(datos[i]==85 && datos[i+1]==4 && datos[i+2]==5){
+                int n=0;
+                for (int v=i+5;v<i+14;v++){
+                    
+                    b[n]=datos[v];
+                    n++;
+                
+                }
+            }
+            if(parada==false){
+            if(datos[i]==85 && datos[i+1]==4 && datos[i+2]==3 ){
+                int n=0;
+                for (int l=i+5;l<i+100;l++){
+                    if(datos[l]==40){
+                        parada2=true;
+                    }
+                    if(parada2==false){
+                    k[n]=datos[l];
+                    n++;
+                    }
+                }
+                parada=true;
+            }
+            
+            }
+        }
+        String a=new String (b);
+        String z=new String (k);
+        
+        //Creamos el nombre de usuario
+
+        String[] arrayNombre = z.split(" ");
+        nombre = arrayNombre[2].substring(0, 1)+arrayNombre[0]+arrayNombre[1].substring(0, 1);      
+       
+        Usuario us = new Usuario();
+        us.setNombre(arrayNombre[2]);
+        us.setApellido1(arrayNombre[0]);
+        us.setNif(a);
+        us.setApellido2(arrayNombre[1]);
+        
+    return us;
     }
 }
